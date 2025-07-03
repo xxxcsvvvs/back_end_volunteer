@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mycompany.webapp.dao.ReviewDao">
+	<!-- intergrated_board - result map 정의 -->
+	<resultMap id="ReviewResultMap" type="com.mycompany.webapp.dto.ReviewDto">
+        <id property="boardNo" column="board_no"/>
+        <result property="programNo" column="program_no"/>
+        <result property="memberId" column="member_id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="hitCnt" column="hit_cnt"/>
+        <result property="boardDate" column="board_date"/>
+        <result property="battachOname" column="battach_oname"/>
+        <result property="battachData" column="battach_data"/>
+        <result property="battachType" column="battach_type"/>
+        <result property="imgOname" column="img_oname"/>
+        <result property="imgData" column="img_data"/>
+        <result property="imgType" column="img_type"/>
+    </resultMap>
+    
+    <insert id="insertReview" parameterType="review">
+		<selectKey keyProperty="boardNo" resultType="int" order="BEFORE">
+			select review_bo_no.nextval from dual
+		</selectKey>	
+		<!-- null이 들어갈 컬럼값은 반드시 jdbcType을 명시해야함 -->
+		insert into vol_review (
+			board_no, program_no, member_id, title, content, hit_cnt, board_date, 
+			battach_oname, battach_data, battach_type, img_oname, img_data,
+			img_type) 
+			values (
+			#{boardNo}, #{programNo}, #{memberId}, #{title}, #{content}, 0, sysdate, 
+	       	#{battachOname}, #{battachData}, #{battachType}, #{imgOname}, #{imgData}, 
+	       	#{imgType})
+	</insert>
+	<select id="selectReviewByNo" parameterType="int" resultMap="ReviewResultMap">
+        select board_no, program_no, member_id, title, content, hit_cnt, board_date, 
+				battach_oname, battach_data, battach_type, img_oname, img_data,
+				img_type
+        from vol_review 
+        where board_no = #{boardNo}
+    </select>
+    <update id="updateReview" parameterType="review">
+		update vol_review set title = #{title}, content = #{content}
+		<if test="battachOname != null">
+			, battach_oname=#{battachOname}
+			, battach_type=#{battachType}
+			, battach_data=#{battachData}
+		</if>
+		<if test="imgOname != null">
+			, img_oname=#{imgOname}
+			, img_type=#{imgType}
+			, img_data=#{imgData}
+		</if>
+		where board_no = #{boardNo}
+	</update>
+    <update id="updateHitCntByNo" parameterType="int">	
+		update vol_review set hit_cnt = hit_cnt + 1 
+		where board_no = #{boardNo}
+	</update>
+	<delete id="deleteReview" parameterType="int">
+		delete from vol_review where board_no= #{boardNo}
+	</delete>
+	<insert id="insertReviewReply">
+		<selectKey keyProperty="replyNo" resultType="int" order="BEFORE">
+			select reply_no.nextval from dual
+		</selectKey>
+		insert into review_reply (reply_no, board_no, member_id, content, reply_date, pre_reply_no)
+		values (#{replyNo}, #{boardNo}, #{memberId}, #{content}, sysdate, #{preReplyNo})
+	</insert>
+	<select id="selectReviewReplyByNo" resultType="reviewReply">
+		select * from review_reply where board_no = #{boardNo} ORDER BY reply_No
+	</select>
+	<select id="selectReviewCount" resultType="int">
+		select count(*) from
+		vol_review 
+		<if test="keyword != null">
+			<if test="keywordIndex == 1">
+				where title LIKE '%' || #{keyword} || '%'
+			</if>
+			<if test="keywordIndex == 2">
+				where member_id = #{keyword}
+			</if>
+			<if test="keywordIndex == 3">
+				where content LIKE '%' || #{keyword} || '%'
+			</if>
+		</if>
+	</select>
+	<select id="selectReviewList" resultType="review">
+		select rnum, board_no, program_no, member_id, title, content, hit_cnt,
+		board_date
+		from (
+		select rownum as
+		rnum, board_no, program_no, member_id, title, content, hit_cnt,
+		board_date
+		from (
+		select
+		board_no, program_no, member_id, title, content, hit_cnt,
+		board_date
+		from vol_review 
+		<if test="searchIndex.keyword != null">
+			<if test="searchIndex.keywordIndex == 1">
+				where title LIKE '%' || #{searchIndex.keyword} || '%'
+			</if>
+			<if test="searchIndex.keywordIndex == 2">
+				where member_id = #{searchIndex.keyword}
+			</if>
+			<if test="searchIndex.keywordIndex == 3">
+				where content LIKE '%' || #{searchIndex.keyword} || '%'
+			</if>
+		</if>
+		order by board_no desc
+		)
+		where rownum <![CDATA[<=]]>
+		#{pager.endRowNo}
+		)
+		where rnum <![CDATA[>=]]>
+		#{pager.startRowNo}
+	</select>
+	<select id="selectReviewCountByMember" resultType="int">
+		select count(*) from
+		vol_review where member_id = #{memberId}
+		<if test="searchIndex.keyword != null">
+			<if test="searchIndex.keywordIndex == 1">
+				and title LIKE '%' || #{searchIndex.keyword} || '%'
+			</if>
+			<if test="searchIndex.keywordIndex == 3">
+				and content LIKE '%' || #{searchIndex.keyword} || '%'
+			</if>
+		</if>
+	</select>
+	<select id="selectReviewListByMember" resultType="review">
+		select rnum, board_no, program_no, member_id, title, content, hit_cnt,
+		board_date
+		from (
+		select rownum as
+		rnum, board_no, program_no, member_id, title, content, hit_cnt,
+		board_date
+		from (
+		select
+		board_no, program_no, member_id, title, content, hit_cnt,
+		board_date
+		from vol_review where member_id = #{memberId}
+		<if test="searchIndex.keyword != null">
+			<if test="searchIndex.keywordIndex == 1">
+				and title LIKE '%' || #{searchIndex.keyword} || '%'
+			</if>
+			<if test="searchIndex.keywordIndex == 3">
+				and content LIKE '%' || #{searchIndex.keyword} || '%'
+			</if>
+		</if>
+		order by board_no desc
+		)
+		where rownum <![CDATA[<=]]>
+		#{pager.endRowNo}
+		)
+		where rnum <![CDATA[>=]]>
+		#{pager.startRowNo}
+	</select>
+	
+</mapper>
